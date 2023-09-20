@@ -1,0 +1,40 @@
+---
+- name: Cleanup
+  hosts: all
+  tasks:
+    - name: "Cleanup - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"
+
+    - name: "Cleanup - Remove created passwords"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.delete_password
+      vars:
+        delete_password_username: "{{ account.username }}"
+        delete_password_address: "{{ account.address }}"
+        delete_password_safe_name: "{{ safe_name }}"
+        delete_password_platform_id: "{{ account.platform_id }}"
+      loop: "{{ accounts | selectattr('state', 'eq', 'present') | selectattr('secret_type', 'eq', 'password') }}"
+      loop_control:
+        loop_var: "account"
+
+    - name: "Cleanup - Remove created keys"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.delete_key
+      vars:
+        delete_key_username: "{{ account.username }}"
+        delete_key_address: "{{ account.address }}"
+        delete_key_safe_name: "{{ safe_name }}"
+        delete_key_platform_id: "{{ account.platform_id }}"
+      loop: "{{ accounts | selectattr('state', 'eq', 'present') | selectattr('secret_type', 'eq', 'key') }}"
+      loop_control:
+        loop_var: "account"
+
+    - name: "Cleanup - Logout from PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout

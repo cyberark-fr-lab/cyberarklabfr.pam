@@ -1,0 +1,93 @@
+---
+- name: "Guess account's address (if not defined) - {{ create_key_username }}"
+  ansible.builtin.set_fact:
+    address: "{{ ansible_default_ipv4.address | default(hostvars[inventory_hostname]['ansible_env'].SSH_CONNECTION.split(' ')[2]) }}"
+  when: create_key_address is not defined
+
+- name: "Check if user exist on host - {{ create_key_username }}"
+  become: true
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ create_key_username }}"
+    fail_key: false
+
+- name: "Check if private key is already in PAM - {{ create_key_username }}"
+  delegate_to: localhost
+  cyberark.pas.cyberark_account:
+    identified_by: "address,username,platform_id"
+    username: "{{ create_key_username }}"
+    address: "{{ create_key_address }}"
+    safe: "{{ create_key_safe_name }}"
+    platform_id: "{{ create_key_platform_id }}"
+    secret_type: "key"
+    state: present
+    cyberark_session: "{{ cyberark_session }}"
+  register: account_check
+  failed_when: false
+  retries: 5
+  delay: 10
+
+- name: "Generate and store key in PAM - {{ create_key_username }}"
+  when: account_check.status_code != -1 or ansible_facts.getent_passwd[create_key_username] is not defined
+  block:
+    - name: "Generate a 4096-bit ssh key - {{ create_key_username }}"
+      ansible.builtin.user:
+        name: "{{ create_key_username }}"
+        generate_ssh_key: true
+        ssh_key_bits: 4096
+        ssh_key_file: ".ssh/id_cyberark_rsa"
+      changed_when: false
+
+    - name: "Register private key in Ansible - {{ create_key_username }}"
+      ansible.builtin.command: "cat ~{{ create_key_username }}/.ssh/id_cyberark_rsa"
+      register: cat_ssh_key
+      changed_when: false
+      no_log: true
+
+    - name: "Register public key in Ansible - {{ create_key_username }}"
+      ansible.builtin.command: "cat ~{{ create_key_username }}/.ssh/id_cyberark_rsa.pub"
+      register: cat_ssh_key_pub
+      changed_when: false
+
+    - name: "Remove generated files from host - {{ create_key_username }}"
+      ansible.builtin.file:
+        path: "~{{ create_key_username }}/.ssh/{{ item }}"
+        state: absent
+      with_items:
+        - "id_cyberark_rsa"
+        - "id_cyberark_rsa.pub"
+
+    - name: "Upload private key to PAM - {{ create_key_username }}"
+      delegate_to: localhost
+      cyberark.pas.cyberark_account:
+        identified_by: "address,username,platform_id"
+        username: "{{ create_key_username }}"
+        address: "{{ create_key_address }}"
+        safe: "{{ create_key_safe_name }}"
+        platform_id: "{{ create_key_platform_id }}"
+        secret: "{{ cat_ssh_key.stdout }}"
+        secret_type: "key"
+        secret_management:
+          automatic_management_enabled: true
+        state: present
+        cyberark_session: "{{ cyberark_session }}"
+      register: ssh_key_uploaded
+      no_log: true
+      retries: 5
+      delay: 10
+
+    - name: "Store public key to authorized_keys file - {{ create_key_username }}"
+      when: ssh_key_uploaded.changed # noqa: no-handler
+      ansible.posix.authorized_key:
+        user: "{{ create_key_username }}"
+        state: present
+        key: "{{ cat_ssh_key_pub.stdout }}"
+
+    - name: "Remove private key from Ansible - {{ create_key_username }}"
+      ansible.builtin.set_fact:
+        cat_ssh_key: ""
+      no_log: true
+
+    - name: "Remove public key from Ansible - {{ create_key_username }}"
+      ansible.builtin.set_fact:
+        cat_ssh_key_pub: ""

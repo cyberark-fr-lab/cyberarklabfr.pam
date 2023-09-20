@@ -1,0 +1,33 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: "Verify - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"
+
+    - name: "Verify - Password doesn't exist"
+      delegate_to: localhost
+      cyberark.pas.cyberark_account:
+        identified_by: "address,username,platform_id"
+        username: "{{ account.username }}"
+        address: "{{ account.address }}"
+        safe: "{{ safe_name }}"
+        platform_id: "{{ platform_id }}"
+        secret_type: "password"
+        state: absent
+        cyberark_session: "{{ cyberark_session }}"
+      retries: 5
+      delay: 10
+      loop: "{{ accounts }}"
+      loop_control:
+        loop_var: "account"
+
+    - name: "Verify - Logout from PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout

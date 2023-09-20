@@ -1,0 +1,12 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Converge - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"

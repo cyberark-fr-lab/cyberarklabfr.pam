@@ -1,0 +1,41 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: collections.yml
+
+driver:
+  name: podman
+
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        pam_user: ${TEST_PAM_USER}
+        pam_pass: ${TEST_PAM_PASS}
+        pam_url: ${TEST_PAM_URL}
+        identity_url: ${TEST_IDENTITY_URL}
+        accounts:
+          - { username: "cyberark-test-set-key", address: "1.2.3.4" }
+          - { username: "root", address: "1.2.3.4" }
+        safe_name: ${TEST_PAM_SAFE}
+        platform_id: ${TEST_PAM_PWD_PLATFORM}
+
+platforms:
+  - name: molecule_cnt_pam_delete_account
+    image: molecule_img_pam_delete_account
+    pre_build_image: false
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - verify
+    - cleanup
+    - destroy

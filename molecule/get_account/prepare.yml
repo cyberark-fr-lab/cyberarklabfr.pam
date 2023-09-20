@@ -1,0 +1,34 @@
+---
+- name: Prepare
+  hosts: all
+  tasks:
+    - name: "Prepare - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"
+
+    - name: "Upload password to PAM"
+      delegate_to: localhost
+      cyberark.pas.cyberark_account:
+        identified_by: "address,username,platform_id"
+        username: "{{ account.username }}"
+        address: "{{ account.address | default(ansible_default_ipv4.address) }}"
+        safe: "{{ safe_name }}"
+        platform_id: "{{ account.platform_id }}"
+        secret: "{{ account.secret }}"
+        secret_type: "{{ account.secret_type }}"
+        state: "{{ account.state }}"
+        cyberark_session: "{{ cyberark_session }}"
+      register: password_uploaded
+      no_log: false
+      loop: "{{ accounts }}"
+      loop_control:
+        loop_var: "account"
+
+    - name: "Prepare - Logout from PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout

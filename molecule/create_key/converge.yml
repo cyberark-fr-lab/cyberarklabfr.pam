@@ -1,0 +1,28 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Converge - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"
+
+    - name: "Converge - Role cyberarkfrlab.pam.create_key"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.create_key
+      vars:
+        create_key_username: "{{ account.username }}"
+        create_key_address: "{{ account.address }}"
+        create_key_safe_name: "{{ safe_name }}"
+        create_key_platform_id: "{{ platform_id }}"
+      loop: "{{ accounts }}"
+      loop_control:
+        loop_var: "account"
+
+    - name: "Cleanup - Logout from Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout

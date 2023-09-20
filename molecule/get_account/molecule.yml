@@ -1,0 +1,46 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: collections.yml
+
+driver:
+  name: default
+  options:
+    managed: false
+    ansible_connection_options:
+      ansible_connection: local
+
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        pam_user: ${TEST_PAM_USER}
+        pam_pass: ${TEST_PAM_PASS}
+        pam_url: ${TEST_PAM_URL}
+        identity_url: ${TEST_IDENTITY_URL}
+        accounts:
+          - { username: "cyberark-test-get-account-pwd-present", address: "1.2.3.4",
+              secret_type: "password", secret: "dummy", platform_id: $TEST_PAM_PWD_PLATFORM, state: present }
+          - { username: "cyberark-test-get-account-pwd-absent", address: "1.2.3.4",
+              secret_type: "password", secret: "dummy", platform_id: $TEST_PAM_PWD_PLATFORM, state: absent }
+          - { username: "cyberark-test-get-account-key-present", address: "1.2.3.4",
+              secret_type: "key", secret: "dummy", platform_id: $TEST_PAM_KEY_PLATFORM, state: present }
+          - { username: "cyberark-test-get-account-key-absent", address: "1.2.3.4",
+              secret_type: "key", secret: "dummy", platform_id: $TEST_PAM_KEY_PLATFORM, state: absent }
+        safe_name: ${TEST_PAM_SAFE}
+
+platforms:
+  - name: molecule_get_account
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - prepare
+    - converge
+    - idempotence
+    - cleanup
+    - destroy

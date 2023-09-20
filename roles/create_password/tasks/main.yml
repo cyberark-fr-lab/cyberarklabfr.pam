@@ -1,0 +1,42 @@
+---
+- name: "Guess account's address (if not defined) - {{ create_password_username }}"
+  when: create_password_address is not defined
+  ansible.builtin.set_fact:
+    create_password_address: "{{ ansible_default_ipv4.address | default(hostvars[inventory_hostname]['ansible_env'].SSH_CONNECTION.split(' ')[2]) }}"
+
+- name: "Generate a random password (if not defined) - {{ create_password_username }}"
+  when: (create_password_password is not defined) or (create_password_password | length == 0)
+  ansible.builtin.set_fact:
+    create_password_password: "{{ lookup('password', '/dev/null length=24') }}"
+  register: generate_password
+  no_log: true
+  changed_when: false
+
+- name: "Upload password to PAM - {{ create_password_username }}"
+  delegate_to: localhost
+  cyberark.pas.cyberark_account:
+    identified_by: "address,username,platform_id"
+    username: "{{ create_password_username }}"
+    address: "{{ create_password_address | default(ansible_default_ipv4.address) }}"
+    safe: "{{ create_password_safe_name }}"
+    platform_id: "{{ create_password_platform_id }}"
+    secret: "{{ create_password_password }}"
+    secret_type: "password"
+    state: present
+    cyberark_session: "{{ cyberark_session }}"
+  register: password_uploaded
+  no_log: true
+  retries: 5
+  delay: 10
+
+- name: "Set password on host - {{ create_password_username }}"
+  when: password_uploaded.changed # noqa: no-handler
+  ansible.builtin.user:
+    name: "{{ create_password_username }}"
+    password: "{{ create_password_password | password_hash('sha512') }}"
+  no_log: true
+
+- name: "Remove password from Ansible - {{ create_password_username }}"
+  when: password_uploaded.changed # noqa: no-handler
+  ansible.builtin.set_fact:
+    create_password_password: ""

@@ -1,0 +1,29 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: "Verify - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"
+
+    - name: "Verify - Logout from PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout
+
+    - name: "Verify - Loggged out from PAM Web portal"
+      delegate_to: localhost
+      ansible.builtin.uri:
+        url: "{{ pam_url }}/PasswordVault/WebServices/PIMServices.svc/User"
+        method: GET
+        validate_certs: true
+        return_content: true
+        headers:
+          Authorization: "{{ cyberark_session.token | default('') }}"
+        status_code: 403
+      retries: 5
+      delay: 10

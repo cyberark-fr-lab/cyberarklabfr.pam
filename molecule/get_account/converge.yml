@@ -1,0 +1,52 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Converge - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"
+
+    - name: "Converge - Get account"
+      cyberarkfrlab.pam.get_account:
+        identified_by: "address,username,platform_id"
+        username: "{{ account.username }}"
+        address: "{{ account.address }}"
+        secret_type: "{{ account.secret_type }}"
+        safe: "{{ safe_name }}"
+        platform_id: "{{ account.platform_id }}"
+        cyberark_session: "{{ cyberark_session }}"
+        state: "{{ account.state }}"
+      retries: 5
+      delay: 10
+      loop: "{{ accounts }}"
+      loop_control:
+        loop_var: "account"
+
+    - name: "Converge - Getting account which doesn't exist"
+      cyberarkfrlab.pam.get_account:
+        identified_by: "address,username,platform_id"
+        username: "dummy"
+        address: "dummy"
+        secret_type: "password"
+        safe: "dummy"
+        platform_id: "dummy"
+        cyberark_session: "{{ cyberark_session }}"
+        state: "present"
+      retries: 5
+      delay: 10
+      register: get_account_failing
+      failed_when: false
+
+    - name: "Converge - Getting account"
+      ansible.builtin.fail:
+        msg: "Found an account which doesn't exist"
+      when: get_account_failing.msg is not defined or get_account_failing.msg != 'Found no account'
+
+    - name: "Converge - Logout from PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout

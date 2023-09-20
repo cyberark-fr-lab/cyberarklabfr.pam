@@ -1,0 +1,41 @@
+---
+- name: Authenticate to Identity or PAM?
+  ansible.builtin.set_fact:
+    login_is_isp: (login_identity_url is defined) and (login_identity_url | length > 0)
+
+- name: Login to CyberArk PAM Standalone
+  when: not login_is_isp
+  cyberark.pas.cyberark_authentication:
+    api_base_url: "{{ login_pam_url }}"
+    validate_certs: true
+    username: "{{ login_username }}"
+    password: "{{ login_password }}"
+  no_log: true
+
+- name: Login to Identity
+  when: login_is_isp
+  block:
+    - name: Authenticate to Identity
+      delegate_to: localhost
+      ansible.builtin.uri:
+        url: "{{ login_identity_url }}/oauth2/platformtoken"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          client_id: "{{ login_username }}"
+          client_secret: "{{ login_password }}"
+        status_code: 200
+      register: login_to_identity
+      no_log: true
+      retries: 5
+      delay: 10
+
+    - name: Store session token in Ansible
+      ansible.builtin.set_fact:
+        cyberark_session:
+          api_base_url: "{{ login_pam_url }}"
+          token: "Bearer {{ login_to_identity.json.access_token }}"
+          use_shared_logon_authentication: false
+          validate_certs: true
+      no_log: true
