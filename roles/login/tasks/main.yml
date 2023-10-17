@@ -5,6 +5,7 @@
 
 - name: Login to CyberArk PAM Standalone
   when: not login_is_isp
+  delegate_to: localhost
   cyberark.pas.cyberark_authentication:
     api_base_url: "{{ login_pam_url }}"
     validate_certs: true
@@ -28,8 +29,8 @@
         status_code: 200
       register: login_to_identity
       no_log: true
-      retries: 5
-      delay: 10
+      retries: 3
+      delay: 5
 
     - name: Store session token in Ansible
       ansible.builtin.set_fact:

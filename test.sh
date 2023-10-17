@@ -24,7 +24,7 @@ check_test () {
 }
 
 # Run all role tests
-mol_tests=("login" "get_account" "logout" "create_key" "create_password" "delete_key" "delete_password")
+mol_tests=("login" "get_account" "delete_account" "logout" "create_key" "create_password" "delete_key" "delete_password")
 for mol_test in "${mol_tests[@]}"; do
   log "$C_TEST" "test" "$mol_test"
   molecule -v test -s "$mol_test"

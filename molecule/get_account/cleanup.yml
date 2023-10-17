@@ -12,26 +12,15 @@
         login_pam_url: "{{ pam_url }}"
 
     - name: "Cleanup - Remove created passwords"
-      ansible.builtin.include_role:
-        name: cyberarkfrlab.pam.delete_password
-      vars:
-        delete_password_username: "{{ account.username }}"
-        delete_password_address: "{{ account.address }}"
-        delete_password_safe_name: "{{ safe_name }}"
-        delete_password_platform_id: "{{ account.platform_id }}"
-      loop: "{{ accounts | selectattr('state', 'eq', 'present') | selectattr('secret_type', 'eq', 'password') }}"
-      loop_control:
-        loop_var: "account"
-
-    - name: "Cleanup - Remove created keys"
-      ansible.builtin.include_role:
-        name: cyberarkfrlab.pam.delete_key
-      vars:
-        delete_key_username: "{{ account.username }}"
-        delete_key_address: "{{ account.address }}"
-        delete_key_safe_name: "{{ safe_name }}"
-        delete_key_platform_id: "{{ account.platform_id }}"
-      loop: "{{ accounts | selectattr('state', 'eq', 'present') | selectattr('secret_type', 'eq', 'key') }}"
+      cyberarkfrlab.pam.delete_account:
+        identified_by: "address,username,platform_id"
+        username: "{{ account.username }}"
+        address: "{{ account.address }}"
+        safe: "{{ safe_name }}"
+        platform_id: "{{ account.platform_id }}"
+        secret_type: "{{ account.secret_type }}"
+        cyberark_session: "{{ cyberark_session }}"
+      loop: "{{ accounts | selectattr('state', 'eq', 'present') }}"
       loop_control:
         loop_var: "account"
 

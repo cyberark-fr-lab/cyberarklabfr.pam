@@ -11,8 +11,8 @@
         login_identity_url: "{{ identity_url }}"
         login_pam_url: "{{ pam_url }}"
 
-    - name: "Converge - Get account"
-      cyberarkfrlab.pam.get_account:
+    - name: "Converge - Delete account"
+      cyberarkfrlab.pam.delete_account:
         identified_by: "address,username,platform_id"
         username: "{{ account.username }}"
         address: "{{ account.address }}"
@@ -20,32 +20,22 @@
         safe: "{{ safe_name }}"
         platform_id: "{{ account.platform_id }}"
         cyberark_session: "{{ cyberark_session }}"
-        state: "{{ account.state }}"
       retries: 5
       delay: 10
       loop: "{{ accounts }}"
       loop_control:
         loop_var: "account"
 
-    - name: "Converge - Get account which doesn't exist"
-      cyberarkfrlab.pam.get_account:
-        identified_by: "address,username,platform_id"
-        username: "dummy"
-        address: "dummy"
-        secret_type: "password"
-        safe: "dummy"
-        platform_id: "dummy"
+    - name: "Converge - Delete 'multiple' accounts"
+      cyberarkfrlab.pam.delete_account:
+        identified_by: "address,username"
+        username: "{{ accounts_multiple_name_prefix }}"
+        address: "{{ accounts_multiple_address | default(ansible_default_ipv4.address) }}"
+        safe: "{{ safe_name }}"
         cyberark_session: "{{ cyberark_session }}"
-        state: "present"
+        multiple: true
       retries: 5
       delay: 10
-      register: get_account_failing
-      failed_when: false
-
-    - name: "Converge - Fail for get account which doesn't exist"
-      ansible.builtin.fail:
-        msg: "Found an account which doesn't exist"
-      when: get_account_failing.success
 
     - name: "Converge - Logout from PAM Web portal"
       ansible.builtin.include_role:

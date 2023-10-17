@@ -1,30 +1,13 @@
 ---
-- name: "Search for ssh key in PAM - {{ delete_key_username }}"
+- name: "Delete ssh key in PAM - {{ delete_key_username }}"
   delegate_to: localhost
-  cyberark.pas.cyberark_account:
+  cyberarkfrlab.pam.delete_account:
     identified_by: "address,username,platform_id"
     username: "{{ delete_key_username }}"
     address: "{{ delete_key_address }}"
     safe: "{{ delete_key_safe_name }}"
     platform_id: "{{ delete_key_platform_id }}"
     secret_type: "key"
-    state: present
     cyberark_session: "{{ cyberark_session }}"
-  register: getkeyaction
-  failed_when: getkeyaction.status_code not in [200, 400, -1]
-  retries: 5
-  delay: 10
-
-- name: "Delete ssh key from PAM - {{ delete_key_username }}"
-  delegate_to: localhost
-  ansible.builtin.uri:
-    url: "{{ cyberark_session.api_base_url }}/PasswordVault/WebServices/PIMServices.svc/Accounts/{{ getkeyaction.result.result.id }}"
-    method: DELETE
-    validate_certs: true
-    return_content: true
-    headers:
-      Authorization: "{{ cyberark_session.token }}"
-    status_code: 200
-  when: getkeyaction.result.result.id is defined
-  retries: 5
-  delay: 10
+  retries: 3
+  delay: 5

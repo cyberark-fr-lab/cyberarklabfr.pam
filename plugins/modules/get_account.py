@@ -4,9 +4,7 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import (absolute_import, division, print_function)
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import open_url
-from ansible.module_utils.six.moves.urllib.parse import quote
-import json
+from ansible_collections.cyberarkfrlab.pam.plugins.module_utils.search import search_accounts
 
 __metaclass__ = type
 
@@ -36,7 +34,7 @@ options:
         type: str
     validate_certs:
         description:
-            - If C(false), SSL certificate chain will not be validated.
+            - If C(false), TLS certificate chain will not be validated.
               This should only set to C(true) if you have a root CA certificate installed on each node.
         required: false
         default: true
@@ -49,7 +47,7 @@ options:
         required: true
         type: dict
     safe:
-        description: The safe in the Vault where the privileged account is to be located.
+        description: The safe in PAM where the privileged account is to be located.
         required: true
         type: str
     identified_by:
@@ -111,9 +109,6 @@ EXAMPLES = r'''
     state: "present"
   retries: 5
   delay: 10
-  loop: "{{ accounts }}"
-  loop_control:
-    loop_var: "account"
 
 - name: "Logout from PAM Web portal"
   ansible.builtin.include_role:
@@ -129,9 +124,21 @@ failed:
     description: Whether playbook run resulted in a failure of any kind.
     returned: always
     type: bool
-result:
-    description: A json dump of the resulting action.
-    returned: success
+success:
+    description: Whether the module successfully get account(s).
+    returned: always
+    type: bool
+response:
+    description: Response from PAM containing the error
+    returned: when not success
+    type: text
+accounts:
+    description: List of accounts found
+    returned: when state==present and multiple and success
+    type: array of account
+account:
+    description: Account found
+    returned: when state==present and when success
     type: complex
     contains:
         id:
@@ -140,7 +147,7 @@ result:
             type: int
             sample: "25_21"
         safe:
-            description: The safe in the Vault where the privileged account is to be located.
+            description: The safe in PAM where the privileged account is to be located.
             returned: successful addition and modification
             type: str
             sample: Domain_Admins
@@ -266,6 +273,10 @@ def run_module():
             "choices": ["password", "key"],
             "default": "password",
         },
+        "multiple": {
+            "type": "bool",
+            "default": "false"
+        },
     }
 
     # the AnsibleModule object will be our abstraction working with Ansible
@@ -277,137 +288,39 @@ def run_module():
         supports_check_mode=True
     )
 
-    # List accounts #
-    cyberark_session = module.params["cyberark_session"]
+    # Search for accounts with matching fields
+    search = search_accounts(module)
+    if not search['success']:
+        result = dict(success=False, response=search['response'])
+        module.fail_json(msg="Search failed", **result)
 
-    # Authentication header
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": cyberark_session["token"],
-        "User-Agent": "CyberArk/1.0 (Ansible; cyberarkfrlab.pam)"
-    }
-
-    # Craft URL
-    api_base_url = cyberark_session["api_base_url"]
-    validate_certs = cyberark_session["validate_certs"]
-    endpoint = "/PasswordVault/api/Accounts"
-
-    # Get all accounts that match safe, platform, user and address
-    url = req_build_url(api_base_url + endpoint, [req_build_search_param(module.params), req_build_filter_param(module.params)])
-    response = open_url(
-        url,
-        method="GET",
-        headers=headers,
-        validate_certs=validate_certs,
-    )
-
-    # Successful response
-    if response.getcode() != 200:
-        result = {}
-        module.fail_json(msg='Fail to list accounts!', **result)
-    resp_data = json.loads(response.read())
-    accounts = resp_data["value"] if 'value' in resp_data else []
-
-    # Filter found accounts by secret_type
-    # This filter cannot be used in the GET /Accounts call
-    account_key_map = {
-        'categoryModificationTime': 'modified_time',
-        'createdTime': 'created_time',
-        'secretType': 'secret_type',
-        'platformAccountProperties': 'platform_account_properties',
-        'platformId': 'platform_id',
-        'safeName': 'safe',
-        'secretManagement': 'secret_management',
-        'userName': 'username'
-    }
-    accounts = rename_keys(account_key_map, accounts)
-    if 'secret_type' in module.params and module.params["secret_type"] is not None:
-        accounts = filter_accounts_by('secret_type', module.params["secret_type"], accounts)
-
+    accounts = search['accounts']
+    # Handle case: Account mustn't exist (state=absent)
     if module.params['state'] == 'absent':
         if len(accounts) != 0:
-            result = {}
-            module.fail_json(msg='Found at least one account', **result)
+            result = dict(success=False, response=accounts)
+            module.fail_json(msg='Found one account or more', **result)
         else:
-            result = dict(changed=False)
+            result = dict(changed=False, success=True)
             module.exit_json(**result)
 
-    # We assume state is 'present'
+    # Handle case: One account must exist (state=present)
     if len(accounts) == 0:
-        result = {}
+        result = dict(success=False, response=None)
         module.fail_json(msg='Found no account', **result)
+
+    if module.params['multiple']:
+        result = dict(changed=False, success=True, accounts=accounts)
+        module.exit_json(**result)
 
     # We must have exactly one account
     if len(accounts) > 1:
-        result = dict(json=accounts, changed=False)
-        module.fail_json(msg='More than one account found', **result)
+        result = dict(success=False, response=accounts)
+        module.fail_json(msg='Found one account or more', **result)
 
     # Return account
-    result = dict(result=accounts[0], changed=False)
+    result = dict(changed=False, success=True, account=accounts[0])
     module.exit_json(**result)
-
-
-# Build search parameter for GET /Accounts
-# Eg: search=root%201.2.3.4%20sshkeys
-def req_build_search_param(mod_parameters):
-    if "name" in mod_parameters and mod_parameters["name"] is not None:
-        return "search" + "=" + quote(mod_parameters["name"])
-
-    search_string = ''
-    for account_field in mod_parameters["identified_by"].split(","):
-        if account_field in mod_parameters and mod_parameters[account_field] is not None:
-            search_string += (" " if search_string != '' else '') + mod_parameters[account_field]
-
-    # Build the search request based on identified fields
-    if len(search_string) > 0:
-        search_string = "search=" + quote(search_string)
-
-    return search_string
-
-
-# Build filter parameter for GET /Accounts
-# Eg: filter=safeName%20eq%20SSH_Keys
-def req_build_filter_param(mod_parameters):
-    if "safe" in mod_parameters and mod_parameters["safe"] is not None:
-        return "filter=" + quote("safeName eq ") + quote(mod_parameters["safe"])
-    else:
-        return ''
-
-
-def filter_accounts_by(key, value, accounts):
-    out_accounts = []
-    for account in accounts:
-        if value == account[key]:
-            out_accounts.append(account)
-
-    return out_accounts
-
-
-# Concatenate url with GET parameters.
-# Eg: https://pvwa.tld/PasswordVault/api/Accounts?search=root%201.2.3.4%20sshkeys&filter=safeName%20eq%20SSH_Keys
-def req_build_url(url, params):
-    out_url = url
-    prefix_token = '?'
-    for req_param in params:
-        out_url += prefix_token + req_param
-        prefix_token = '&'
-
-    return out_url
-
-
-# Rename accounts' keys to key_map keys
-def rename_keys(key_map, accounts):
-    out_accounts = []
-    for account in accounts:
-        # Create a copy we can modify
-        out_account = account.copy()
-        for key in account:
-            if key in key_map:
-                out_account[key_map[key]] = out_account.pop(key)
-        # Output modified account
-        out_accounts.append(out_account)
-
-    return out_accounts
 
 
 def main():

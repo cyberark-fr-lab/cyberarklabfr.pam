@@ -1,5 +1,6 @@
 ---
 - name: Logout from PAM Web portal
+  delegate_to: localhost
   cyberark.pas.cyberark_authentication:
     state: absent
     cyberark_session: "{{ cyberark_session }}"

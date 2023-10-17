@@ -21,11 +21,29 @@
         platform_id: "{{ account.platform_id }}"
         secret: "{{ account.secret }}"
         secret_type: "{{ account.secret_type }}"
-        state: "{{ account.state }}"
+        state: "present"
         cyberark_session: "{{ cyberark_session }}"
       register: password_uploaded
       no_log: false
       loop: "{{ accounts }}"
+      loop_control:
+        loop_var: "account"
+
+    - name: "Upload 'multiple' accounts to PAM"
+      delegate_to: localhost
+      cyberark.pas.cyberark_account:
+        identified_by: "address,username,platform_id"
+        username: "{{ accounts_multiple_name_prefix }}{{ account.username }}"
+        address: "{{ accounts_multiple_address | default(ansible_default_ipv4.address) }}"
+        safe: "{{ safe_name }}"
+        platform_id: "{{ account.platform_id }}"
+        secret: "{{ account.secret }}"
+        secret_type: "{{ account.secret_type }}"
+        state: "present"
+        cyberark_session: "{{ cyberark_session }}"
+      register: password_uploaded
+      no_log: false
+      loop: "{{ accounts_multiple }}"
       loop_control:
         loop_var: "account"
 

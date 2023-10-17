@@ -26,8 +26,8 @@
     cyberark_session: "{{ cyberark_session }}"
   register: password_uploaded
   no_log: true
-  retries: 5
-  delay: 10
+  retries: 3
+  delay: 5
 
 - name: "Set password on host - {{ create_password_username }}"
   when: password_uploaded.changed # noqa: no-handler

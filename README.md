@@ -1,15 +1,40 @@
 # Ansible Collection - cyberarkfrlab.pam
 
-A collection of roles for Privilege Access Manager (Self-Hosted or Privilege Cloud):
+A collection of roles and modules for Privilege Access Manager (Self-Hosted or Privilege Cloud):
 
 | Role                              | Description                                       |
 |-----------------------------------|---------------------------------------------------|
 | cyberarkfrlab.pam.login           | Login to PAM (Self-Hosted or Privilege Cloud)     |
 | cyberarkfrlab.pam.logout          | Logout from PAM (Self-Hosted or Privilege Cloud)  |
 | cyberarkfrlab.pam.create_password | Create a password for a user and upload it to PAM |
-| cyberarkfrlab.pam.delete_password | Delete the password of a user from PAM            |
 | cyberarkfrlab.pam.create_key      | Create an ssh key for a user and upload it to PAM |
-| cyberarkfrlab.pam.delete_key      | Delete the ssh key of a user from PAM             |
+| cyberarkfrlab.pam.delete_password | Delete user's password from PAM and on the host   |
+| cyberarkfrlab.pam.delete_key      | Delete user's ssh key from PAM                    |
+
+
+| Module                           | Description                                  |
+|----------------------------------|----------------------------------------------|
+| cyberarkfrlab.pam.get_account    | Search and return account(s) (no the secret) |
+| cyberarkfrlab.pam.delete_account | Search and delete accounts                   |
+
+
+## Security considerations
+
+### No official support
+This collection is not officially supported nor reviewed by CyberArk.
+Please do not open a CyberArk support case if you have an issue.
+
+### Maturity
+Although this collection features automated testing, it's not free of bugs.
+The project still needs to mature before it can be recommended for production use.
+
+### Technical choices
+The following technical choices have an impact on security:
+- In roles, API calls to CyberArk PAM are delegated to localhost (the machine running Ansible)
+- `cyberarkfrlab.pam.create_password`: After being uploaded to PAM, generated password is removed from Ansible facts.
+- `cyberarkfrlab.pam.create_key`: After being uploaded to PAM, generated private key file is removed from the host and the value from Ansible facts.
+- `cyberarkfrlab.pam.delete_password`: Password is deleted from PAM and on the host.
+- `cyberarkfrlab.pam.delete_key`: Private key is removed from PAM, but public key is not removed from the host.
 
 ## Using this collection
 
@@ -124,9 +149,9 @@ See [Ansible Using collections](https://docs.ansible.com/ansible/devel/user_guid
         name: cyberarkfrlab.pam.logout
 ```
 
-### Example 4 - Get Account information from Vault
+### Example 4 - Get Account information from PAM
 ```yaml
-- hosts: all
+- hosts: localhost
   tasks:
     - name: "Login to PAM Web portal"
       ansible.builtin.include_role:
@@ -146,11 +171,39 @@ See [Ansible Using collections](https://docs.ansible.com/ansible/devel/user_guid
         safe: "Linux_Passwords"
         platform_id: "UnixSSH"
         state: "present"
+        cyberark_session: "{{ cyberark_session }}"
       retries: 5
       delay: 10
-      loop: "{{ accounts }}"
-      loop_control:
-        loop_var: "account"
+
+    - name: "Logout from PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout
+```
+
+### Example 5 - Delete account from PAM
+```yaml
+- hosts: localhost
+  tasks:
+    - name: "Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_pam_user: "pam-auto-onboarding@cyberark.cloud.1234"
+        login_pam_pass: "A strong password"
+        login_pam_url: "https://company.privilegecloud.cyberark.cloud"
+        login_identity_url: "https://abc1234.id.cyberark.cloud"
+
+    - name: "Get operator account information"
+      cyberarkfrlab.pam.delete_account:
+        identified_by: "address,username,platform_id"
+        username: "operator"
+        address: "0.0.0.0"
+        secret_type: "password"
+        safe: "Linux_Passwords"
+        platform_id: "UnixSSH"
+        cyberark_session: "{{ cyberark_session }}"
+      retries: 5
+      delay: 10
 
     - name: "Logout from PAM Web portal"
       ansible.builtin.include_role:
@@ -158,4 +211,4 @@ See [Ansible Using collections](https://docs.ansible.com/ansible/devel/user_guid
 ```
 
 ## TODO
- - [ ] Delete password or key from target
+ - [ ] Delete public key from host

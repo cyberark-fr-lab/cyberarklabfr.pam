@@ -1,0 +1,52 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: collections.yml
+
+driver:
+  name: default
+  options:
+    managed: false
+    ansible_connection_options:
+      ansible_connection: local
+
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        pam_user: ${TEST_PAM_USER}
+        pam_pass: ${TEST_PAM_PASS}
+        pam_url: ${TEST_PAM_URL}
+        identity_url: ${TEST_IDENTITY_URL}
+        accounts:
+          - { username: "cyberark-test-delete-account-pwd-present", address: "1.2.3.4",
+              secret_type: "password", secret: "dummy", platform_id: $TEST_PAM_PWD_PLATFORM }
+          - { username: "cyberark-test-delete-account-key-present", address: "1.2.3.4",
+              secret_type: "key", secret: "dummy", platform_id: $TEST_PAM_KEY_PLATFORM }
+        accounts_multiple_name_prefix: 'cyberark-test-delete-multiple-account-'
+        accounts_multiple_address: '1.2.3.4'
+        accounts_multiple:
+          - { username: "pwd-present1",
+              secret_type: "password", secret: "dummy", platform_id: $TEST_PAM_PWD_PLATFORM }
+          - { username: "pwd-present2", address: "1.2.3.4",
+              secret_type: "password", secret: "dummy", platform_id: $TEST_PAM_PWD_PLATFORM }
+          - { username: "key-present1",
+              secret_type: "key", secret: "dummy", platform_id: $TEST_PAM_KEY_PLATFORM }
+          - { username: "key-present2",
+              secret_type: "key", secret: "dummy", platform_id: $TEST_PAM_KEY_PLATFORM }
+        safe_name: ${TEST_PAM_SAFE}
+
+platforms:
+  - name: molecule_delete_account
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - prepare
+    - converge
+    - idempotence
+    - destroy
