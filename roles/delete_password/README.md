@@ -1,8 +1,9 @@
 # cyberarkfrlab.pam.create_key
 
-Delete an account with a password from Cyberark PAM (Self Hosted or Privilege Cloud)
+Delete an account's password from the host and Cyberark PAM (Self Hosted or Privilege Cloud)
 
 ## Features
+- [x] Delete account's password from host
 - [x] Delete account's password from CyberArk PAM
 
 ## Role variables

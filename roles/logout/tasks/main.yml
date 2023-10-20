@@ -1,11 +1,20 @@
 ---
+- name: Authenticated to Identity or PAM?
+  ansible.builtin.set_fact:
+    logged_in_to_isp: logout_identity_url is defined and logout_identity_url | length > 0
+
+- name: CyberArk token exists?
+  ansible.builtin.set_fact:
+    cyberark_token_exists: cyberark_session is defined and cyberark_session | length > 0
+
 - name: Logout from PAM Web portal
+  when: not logged_in_to_isp and cyberark_token_exists
   delegate_to: localhost
   cyberark.pas.cyberark_authentication:
     state: absent
     cyberark_session: "{{ cyberark_session }}"
-  when: identity_url is not defined and cyberark_session is defined
 
-- name: "Remove Cyberark session token from Ansible"
+- name: Remove Cyberark session token from Ansible
+  when: cyberark_token_exists
   ansible.builtin.set_fact:
     cyberark_session: ""

@@ -1,10 +1,9 @@
 # cyberarkfrlab.pam.logout
 
-Authenticate to Cyberark PAM (Self-Hosted or Privilege Cloud)
+Logout from Cyberark PAM (Self-Hosted)
 
 ## Features
-- [x] Authenticate to Privilege Access Manager Self-Hosted (as a CyberArk user, LDAP or other not supported)
-- [x] Authenticate to Identity Security Platform (as a service account)
+- [x] Logout from CyberArk PAM Self Hosted or Privilege Cloud Standalone. Doesn't work with Privilege Cloud ISP.
 
 ## Role variables
 
@@ -29,7 +28,7 @@ Official molecule [installation instructions](https://ansible.readthedocs.io/pro
 
 ### Configure and run
 
-A Cyberark PAM environnement and service account are required to test this role. \
+A Cyberark PAM environment and service account are required to test this role. \
 Create an `.env.yml` file as such:
 ```yaml
 TEST_IDENTITY_URL: 'https://abc1234.id.cyberark.cloud'

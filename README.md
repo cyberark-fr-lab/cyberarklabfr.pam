@@ -2,21 +2,20 @@
 
 A collection of roles and modules for Privilege Access Manager (Self-Hosted or Privilege Cloud):
 
-| Role                              | Description                                       |
-|-----------------------------------|---------------------------------------------------|
-| cyberarkfrlab.pam.login           | Login to PAM (Self-Hosted or Privilege Cloud)     |
-| cyberarkfrlab.pam.logout          | Logout from PAM (Self-Hosted or Privilege Cloud)  |
-| cyberarkfrlab.pam.create_password | Create a password for a user and upload it to PAM |
-| cyberarkfrlab.pam.create_key      | Create an ssh key for a user and upload it to PAM |
-| cyberarkfrlab.pam.delete_password | Delete user's password from PAM and on the host   |
-| cyberarkfrlab.pam.delete_key      | Delete user's ssh key from PAM                    |
+| Role                                                                 | Description                                                                  |
+|----------------------------------------------------------------------|------------------------------------------------------------------------------|
+| [cyberarkfrlab.pam.login](roles/login/README.md)                     | Login to PAM (Self-Hosted or Privilege Cloud)                                |
+| [cyberarkfrlab.pam.logout](roles/logout/README.md)                   | Logout from PAM (Self-Hosted or Privilege Cloud)                             |
+| [cyberarkfrlab.pam.create_password](roles/create_password/README.md) | Create a password for the specified account on the host and upload it to PAM |
+| [cyberarkfrlab.pam.delete_password](roles/delete_password/README.md) | Delete a password for the specified account on the host and from PAM         |
+| [cyberarkfrlab.pam.create_key](roles/create_key/README.md)           | Create an ssh key for the specified account on the host and upload it to PAM |
+| [cyberarkfrlab.pam.delete_key](roles/delete_key/README.md)           | Delete an ssh key for the specified account from PAM                         |
 
 
-| Module                           | Description                                  |
-|----------------------------------|----------------------------------------------|
-| cyberarkfrlab.pam.get_account    | Search and return account(s) (no the secret) |
-| cyberarkfrlab.pam.delete_account | Search and delete accounts                   |
-
+| Module                           | Description                                                                       |
+|----------------------------------|-----------------------------------------------------------------------------------|
+| cyberarkfrlab.pam.get_account    | Search and return account(s) information. Does not return the password or ssh key |
+| cyberarkfrlab.pam.delete_account | Search and delete account(s)                                                      |
 
 ## Security considerations
 
@@ -31,10 +30,10 @@ The project still needs to mature before it can be recommended for production us
 ### Technical choices
 The following technical choices have an impact on security:
 - In roles, API calls to CyberArk PAM are delegated to localhost (the machine running Ansible)
-- `cyberarkfrlab.pam.create_password`: After being uploaded to PAM, generated password is removed from Ansible facts.
-- `cyberarkfrlab.pam.create_key`: After being uploaded to PAM, generated private key file is removed from the host and the value from Ansible facts.
-- `cyberarkfrlab.pam.delete_password`: Password is deleted from PAM and on the host.
-- `cyberarkfrlab.pam.delete_key`: Private key is removed from PAM, but public key is not removed from the host.
+- `cyberarkfrlab.pam.create_password`: Once uploaded to PAM, the generated password is removed from Ansible facts.
+- `cyberarkfrlab.pam.create_key`: Once uploaded to PAM, the generated private key file is removed from the host and the fact from Ansible.
+- `cyberarkfrlab.pam.delete_password`: The password is deleted from PAM and then on the host.
+- `cyberarkfrlab.pam.delete_key`: The private key is removed from PAM but the public key is not removed from the host.
 
 ## Using this collection
 
