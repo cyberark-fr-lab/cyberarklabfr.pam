@@ -18,18 +18,6 @@
         retention_days: 0
         cyberark_session: "{{ cyberark_session }}"
 
-    - name: "Prepare - Create dummy accounts"
-      ansible.builtin.include_role:
-        name: cyberarkfrlab.pam.create_key
-      vars:
-        create_key_username: "{{ account.username }}"
-        create_key_address: "{{ account.address }}"
-        create_key_safe_name: "{{ safe_name }}"
-        create_key_platform_id: "{{ platform_id }}"
-      loop: "{{ accounts }}"
-      loop_control:
-        loop_var: "account"
-
     - name: "Prepare - Logout from PAM Web portal"
       ansible.builtin.include_role:
         name: cyberarkfrlab.pam.logout

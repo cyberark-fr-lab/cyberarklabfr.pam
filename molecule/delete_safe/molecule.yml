@@ -5,7 +5,11 @@ dependency:
     requirements-file: collections.yml
 
 driver:
-  name: podman
+  name: default
+  options:
+    managed: false
+    ansible_connection_options:
+      ansible_connection: local
 
 provisioner:
   name: ansible
@@ -16,26 +20,18 @@ provisioner:
         pam_pass: ${TEST_PAM_PASS}
         pam_url: ${TEST_PAM_URL}
         identity_url: ${TEST_IDENTITY_URL}
-        accounts:
-          - { username: "cyberark-test-set-key", address: "1.2.3.4" }
-          - { username: "root", address: "1.2.3.4" }
         safe_name: ${TEST_PAM_SAFE}
-        platform_id: ${TEST_PAM_KEY_PLATFORM}
 
 platforms:
-  - name: molecule_cnt_pam_create_accounts
-    image: molecule_img_pam_create_accounts
-    pre_build_image: false
+  - name: molecule_delete_safe
 
 scenario:
   test_sequence:
     - dependency
     - destroy
     - syntax
-    - create
     - prepare
     - converge
     - idempotence
     - verify
-    - cleanup
     - destroy

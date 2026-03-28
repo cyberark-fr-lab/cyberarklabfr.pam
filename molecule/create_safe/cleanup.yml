@@ -11,19 +11,7 @@
         login_identity_url: "{{ identity_url }}"
         login_pam_url: "{{ pam_url }}"
 
-    - name: "Cleanup - Remove created passwords"
-      ansible.builtin.include_role:
-        name: cyberarkfrlab.pam.delete_password
-      vars:
-        delete_password_username: "{{ account.username }}"
-        delete_password_address: "{{ account.address }}"
-        delete_password_safe_name: "{{ safe_name }}"
-        delete_password_platform_id: "{{ platform_id }}"
-      loop: "{{ accounts }}"
-      loop_control:
-        loop_var: "account"
-
-    - name: "Cleanup - Delete test safe"
+    - name: "Cleanup - Delete created safe"
       cyberarkfrlab.pam.delete_safe:
         name: "{{ safe_name }}"
         cyberark_session: "{{ cyberark_session }}"

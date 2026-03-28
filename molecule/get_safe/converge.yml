@@ -1,0 +1,42 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Converge - Login to PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.login
+      vars:
+        login_username: "{{ pam_user }}"
+        login_password: "{{ pam_pass }}"
+        login_identity_url: "{{ identity_url }}"
+        login_pam_url: "{{ pam_url }}"
+
+    - name: "Converge - Get safe"
+      cyberarkfrlab.pam.get_safe:
+        name: "{{ safe_name }}"
+        cyberark_session: "{{ cyberark_session }}"
+      register: get_safe_success
+      retries: 5
+      delay: 10
+
+    - name: "Converge - DEBUG"
+      ansible.builtin.debug:
+        var: get_safe_success
+
+    - name: "Converge - Get safe which doesn't exist"
+      cyberarkfrlab.pam.get_safe:
+        name: "dummy"
+        cyberark_session: "{{ cyberark_session }}"
+      retries: 5
+      delay: 10
+      register: get_safe_failing
+      failed_when: false
+
+    - name: "Converge - Fail to get safe that doesn't exist"
+      ansible.builtin.fail:
+        msg: "Found a safe which doesn't exist"
+      when: get_safe_failing.success
+
+    - name: "Converge - Logout from PAM Web portal"
+      ansible.builtin.include_role:
+        name: cyberarkfrlab.pam.logout

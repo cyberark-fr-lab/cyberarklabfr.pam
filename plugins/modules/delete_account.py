@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function)
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import open_url
 
-from ansible_collections.cyberarkfrlab.pam.plugins.module_utils.search import search_accounts
+from ansible_collections.cyberarkfrlab.pam.plugins.module_utils.account import search_accounts
 
 __metaclass__ = type
 
@@ -14,7 +14,7 @@ DOCUMENTATION = r'''
 ---
 module: delete_account
 
-short_description: Search and delete an account.
+short_description: Delete an account.
 
 # If this is part of a collection, you need to use semantic versioning,
 # i.e. the version is of the form "2.5.0" and not "2.4".
@@ -22,7 +22,9 @@ version_added: "1.0.0"
 
 description: 
  - Search and delete an account based on fields such as name, username, address, safe and platform.
-   Succeed if exactly one account is found, fails otherwise.
+   Changes if account is deleted.
+   Ok if account doesn't exist.
+   Fails if account cannot be deleted or if there is an error.
 
 options:
     validate_certs:
@@ -67,7 +69,7 @@ options:
         required: false
         type: str
     secret_type:
-        description: Type of account's secret.
+        description: Account's secret type.
         required: false
         default: password
         choices: [password, key]
@@ -192,10 +194,9 @@ def run_module():
 
     search = search_accounts(module)
     if not search['success']:
-        result = dict(success=False, response=search['response'])
-        module.fail_json(changed=False, **result)
+        module.fail_json(success=False, msg="Search failed", response=search['content'])
 
-    accounts = search['accounts']
+    accounts = search['content']
     if len(accounts) == 0:
         result = dict(changed=False, success=True, accounts=accounts)
         module.exit_json(**result)
@@ -206,8 +207,7 @@ def run_module():
     elif len(accounts) == 1:
         accounts_to_delete.append(accounts[0])
     else:
-        deleted = dict(success=False, response=search['response'])
-        module.fail_json(msg='Multiple accounts found', **deleted)
+        module.fail_json(success=False, msg='Multiple accounts found', response=search['content'])
 
     # Start deletion
     for account_to_delete in accounts_to_delete:
@@ -215,16 +215,13 @@ def run_module():
         if account_to_delete['secret_type'] == 'key':
             deleted = delete_key_account(cyberark_session, account_to_delete['id'])
             if not deleted['success']:
-                result = dict(success=False, response=deleted['response'])
-                module.fail_json(msg='Fail to delete key', **result)
+                module.fail_json(success=False, msg='Fail to delete key', response=deleted['content'])
         elif account_to_delete['secret_type'] == 'password':
             deleted = delete_password_account(cyberark_session, account_to_delete['id'])
             if not deleted['success']:
-                result = dict(success=False, response=deleted['response'])
-                module.fail_json(msg='Fail to delete password', **result)
+                module.fail_json(success=False, msg='Fail to delete password', response=deleted['content'])
         else:
-            result = dict(success=False, response=account_to_delete)
-            module.fail_json(msg='Account type not managed', **result)
+            module.fail_json(success=False, msg='Account type not managed', response=account_to_delete)
 
     result = dict(changed=True, success=True, accounts=accounts_to_delete)
     module.exit_json(**result)
@@ -245,11 +242,7 @@ def delete_password_account(cyberark_session, account_id):
         validate_certs=cyberark_session["validate_certs"],
     )
 
-    # Successful response
-    if response.getcode() != 204:
-        return dict(success=False, response=response)
-
-    return dict(success=True, response=response)
+    return dict(success=(response.getcode() == 204), code=response.getcode(), content=response.read())
 
 
 def delete_key_account(cyberark_session, account_id):
@@ -267,11 +260,7 @@ def delete_key_account(cyberark_session, account_id):
         validate_certs=cyberark_session["validate_certs"],
     )
 
-    # Successful response
-    if response.getcode() != 200:
-        return dict(success=False, response=response)
-
-    return dict(success=True, response=response)
+    return dict(success=(response.getcode() == 200), code=response.getcode(), content=response.read())
 
 
 def main():

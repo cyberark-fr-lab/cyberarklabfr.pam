@@ -24,6 +24,11 @@
       loop_control:
         loop_var: "account"
 
+    - name: "Cleanup - Delete test safe"
+      cyberarkfrlab.pam.delete_safe:
+        name: "{{ safe_name }}"
+        cyberark_session: "{{ cyberark_session }}"
+
     - name: "Cleanup - Logout from PAM Web portal"
       ansible.builtin.include_role:
         name: cyberarkfrlab.pam.logout

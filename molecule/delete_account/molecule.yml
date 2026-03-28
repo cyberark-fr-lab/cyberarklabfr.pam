@@ -49,4 +49,5 @@ scenario:
     - prepare
     - converge
     - idempotence
+    - cleanup
     - destroy

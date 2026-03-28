@@ -11,7 +11,14 @@
         login_identity_url: "{{ identity_url }}"
         login_pam_url: "{{ pam_url }}"
 
-    - name: "Upload accounts to PAM"
+    - name: "Prepare - Create test safe"
+      cyberarkfrlab.pam.create_safe:
+        name: "{{ safe_name }}"
+        cpm: ""
+        retention_days: 0
+        cyberark_session: "{{ cyberark_session }}"
+
+    - name: "Prepare - Upload accounts to PAM"
       delegate_to: localhost
       cyberark.pas.cyberark_account:
         identified_by: "address,username,platform_id"
@@ -29,7 +36,7 @@
       loop_control:
         loop_var: "account"
 
-    - name: "Upload 'multiple' accounts to PAM"
+    - name: "Prepare - Upload 'multiple' accounts to PAM"
       delegate_to: localhost
       cyberark.pas.cyberark_account:
         identified_by: "address,username,platform_id"

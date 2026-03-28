@@ -11,6 +11,13 @@
         login_identity_url: "{{ identity_url }}"
         login_pam_url: "{{ pam_url }}"
 
+    - name: "Prepare - Create test safe"
+      cyberarkfrlab.pam.create_safe:
+        name: "{{ safe_name }}"
+        cpm: ""
+        retention_days: 0
+        cyberark_session: "{{ cyberark_session }}"
+
     - name: "Prepare - Create dummy accounts"
       ansible.builtin.include_role:
         name: cyberarkfrlab.pam.create_password

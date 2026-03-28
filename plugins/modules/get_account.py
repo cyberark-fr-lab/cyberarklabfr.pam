@@ -4,7 +4,7 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import (absolute_import, division, print_function)
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cyberarkfrlab.pam.plugins.module_utils.search import search_accounts
+from ansible_collections.cyberarkfrlab.pam.plugins.module_utils.account import search_accounts
 
 __metaclass__ = type
 
@@ -12,7 +12,7 @@ DOCUMENTATION = r'''
 ---
 module: get_account
 
-short_description: Search and return an account (no the secret).
+short_description: Get account's information (not the secret).
 
 # If this is part of a collection, you need to use semantic versioning,
 # i.e. the version is of the form "2.5.0" and not "2.4".
@@ -20,14 +20,15 @@ version_added: "1.0.0"
 
 description: 
  - Search for an account based on fields such as name, username, address, safe and platform.
-   Succeed if exactly one account is found, fails otherwise.
+   Ok when exactly one account is found, if 'multiple' is set to true ok when one or more account is found.
    Only basic account information (from GET /Accounts) is returned.
+   Fails if no account is found or if there is an error.
 
 options:
     state:
         description:
-            - Assert the desired state of the account C(present) to create or update and account object.
-              Set to C(absent) for deletion of an account object.
+            - Set to C(present) to verify account exists.
+              Set to C(absent) to verify account doesn't exist.
         required: false
         default: present
         choices: [present, absent]
@@ -42,8 +43,7 @@ options:
     cyberark_session:
         description:
             - Dictionary set by a CyberArk authentication containing the different values to perform actions on a 
-              logged-on CyberArk session, please see M(cyberark.pas.cyberark_authentication) module for an
-              example of cyberark_session.
+              logged-on CyberArk session, please see M(cyberarkfrlab.pam.login) role for an example of cyberark_session.
         required: true
         type: dict
     safe:
@@ -74,7 +74,7 @@ options:
         required: false
         type: str
     secret_type:
-        description: Type of account's secret.
+        description: Account's secret type.
         required: false
         default: password
         choices: [password, key]
@@ -144,11 +144,11 @@ account:
         id:
             description: Internal ObjectID for the account
             returned: always
-            type: int
+            type: str
             sample: "25_21"
         safe:
             description: The safe in PAM where the privileged account is to be located.
-            returned: successful addition and modification
+            returned: always
             type: str
             sample: Domain_Admins
         username:
@@ -163,24 +163,24 @@ account:
             sample: 1.2.3.4
         platform_id:
             description: The id of the platform associated with the account.
-            returned: successful addition and modification
+            returned: always
             type: str
             sample: WinServerLocal
         name:
             description: The external ObjectID of the account
-            returned: successful addition and modification
+            returned: always
             type: str
             sample:
                 - Operating System-WinServerLocal-cyberark.local-administrator
         secret_type:
-            description: Type of account's secret
-            returned: successful addition and modification
+            description: Type of secret
+            returned: always
             type: list
             sample:
                 - key
                 - password
         created_time:
-            description: Timeframe calculation of the timestamp of account creation.
+            description: Creation date (Unix Time).
             returned: always
             type: int
             sample: "1567824520"
@@ -195,27 +195,27 @@ account:
                     description:
                         - Object containing key-value pairs to associate with the
                           account, as defined by the account platform.
-                    returned: successful addition and modification
+                    returned: always
                     type: str
                     sample:
                         - "LogonDomain": "cyberark"
                         - "Port": "22"
         secret_management:
             description: Set of parameters associated with the management of the credential.
-            returned: successful addition and modification
+            returned: always
             type: complex
             contains:
                 automaticManagementEnabled:
                     description:
                         - Parameter that indicates whether the CPM will manage
                           the password or not.
-                    returned: successful addition and modification
+                    returned: always
                     type: bool
                 lastModifiedTime:
                     description:
                         - Timeframe calculation of the timestamp of account
                           modification.
-                    returned: successful addition and modification
+                    returned: always
                     type: int
                     sample: "1567824520"
                 manualManagementReason:
@@ -291,23 +291,20 @@ def run_module():
     # Search for accounts with matching fields
     search = search_accounts(module)
     if not search['success']:
-        result = dict(success=False, response=search['response'])
-        module.fail_json(msg="Search failed", **result)
+        module.fail_json(success=False, msg="Search failed", response=search["content"])
 
-    accounts = search['accounts']
+    accounts = search['content']
     # Handle case: Account mustn't exist (state=absent)
     if module.params['state'] == 'absent':
         if len(accounts) != 0:
-            result = dict(success=False, response=accounts)
-            module.fail_json(msg='Found one account or more', **result)
+            module.fail_json(success=False, msg='Found account(s)', response=search['content'])
         else:
             result = dict(changed=False, success=True)
             module.exit_json(**result)
 
     # Handle case: One account must exist (state=present)
     if len(accounts) == 0:
-        result = dict(success=False, response=None)
-        module.fail_json(msg='Found no account', **result)
+        module.fail_json(success=False, msg='No account found', response=accounts)
 
     if module.params['multiple']:
         result = dict(changed=False, success=True, accounts=accounts)
@@ -315,8 +312,7 @@ def run_module():
 
     # We must have exactly one account
     if len(accounts) > 1:
-        result = dict(success=False, response=accounts)
-        module.fail_json(msg='Found one account or more', **result)
+        module.fail_json(success=False, msg='Found multiple accounts', response=search['content'])
 
     # Return account
     result = dict(changed=False, success=True, account=accounts[0])

@@ -18,12 +18,12 @@
     - name: "Verify - Loggged out from PAM Web portal"
       delegate_to: localhost
       ansible.builtin.uri:
-        url: "{{ pam_url }}/PasswordVault/WebServices/PIMServices.svc/User"
+        url: "{{ pam_url }}/PasswordVault/api/Accounts?limit=1"
         method: GET
         validate_certs: true
         return_content: true
         headers:
           Authorization: "{{ cyberark_session.token | default('') }}"
-        status_code: 403
+        status_code: 401
       retries: 5
       delay: 10

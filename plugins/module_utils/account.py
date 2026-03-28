@@ -9,10 +9,13 @@ from ansible.module_utils.six.moves.urllib.parse import quote
 from ansible_collections.cyberarkfrlab.pam.plugins.module_utils.generic import rename_keys, filter_objects_by
 from ansible_collections.cyberarkfrlab.pam.plugins.module_utils.request import req_get_build_url
 
+from ansible.module_utils.six.moves.urllib.error import HTTPError
+from ansible.module_utils.six.moves.http_client import HTTPException
+
 
 # Build search parameter for GET /Accounts
 # Eg: search=root%201.2.3.4%20sshkeys
-def req_build_search_param(mod_parameters):
+def req_account_build_search_param(mod_parameters):
     if "name" in mod_parameters and mod_parameters["name"] is not None:
         return "search" + "=" + quote(mod_parameters["name"])
 
@@ -30,15 +33,15 @@ def req_build_search_param(mod_parameters):
 
 # Build filter parameter for GET /Accounts
 # Eg: filter=safeName%20eq%20SSH_Keys
-def req_search_build_filter_param(mod_parameters):
+def req_account_build_filter_param(mod_parameters):
     if "safe" in mod_parameters and mod_parameters["safe"] is not None:
         return "filter=" + quote("safeName eq ") + quote(mod_parameters["safe"])
     else:
         return ''
 
 
+# Search and return accounts. Support filters and search parameters
 def search_accounts(module):
-    # List accounts #
     cyberark_session = module.params["cyberark_session"]
 
     # Authentication header
@@ -55,23 +58,26 @@ def search_accounts(module):
 
     # Get all accounts that match safe, platform, user and address
     url = req_get_build_url(api_base_url + endpoint,
-                            [req_build_search_param(module.params), req_search_build_filter_param(module.params)])
-    response = open_url(
-        url,
-        method="GET",
-        headers=headers,
-        validate_certs=validate_certs,
-    )
+                            [req_account_build_search_param(module.params),
+                             req_account_build_filter_param(module.params)])
+
+    try:
+        response = open_url(
+            url,
+            method="GET",
+            headers=headers,
+            validate_certs=validate_certs,
+        )
+    except(HTTPError, HTTPException) as http_exception:
+        return dict(success=False, code=http_exception.getcode(), content=http_exception.read())
 
     # Successful response
     if response.getcode() != 200:
-        return dict(success=False, response=response, accounts=None)
+        return dict(success=False, code=response.getcode(), content=response.read())
 
     resp_data = json.loads(response.read())
     accounts = resp_data["value"] if 'value' in resp_data else []
 
-    # Filter found accounts by secret_type
-    # This filter cannot be used in the GET /Accounts call
     account_key_map = {
         'categoryModificationTime': 'modified_time',
         'createdTime': 'created_time',
@@ -83,7 +89,10 @@ def search_accounts(module):
         'userName': 'username'
     }
     accounts = rename_keys(account_key_map, accounts)
+
+    # Filter found accounts by secret_type
+    # The API search mechanism doesn't support filtering by secret_type, this has to be done here.
     if 'secret_type' in module.params and module.params["secret_type"] is not None:
         accounts = filter_objects_by(accounts, 'secret_type', module.params["secret_type"])
 
-    return dict(success=True, response=response, accounts=accounts)
+    return dict(success=True, content=accounts)
